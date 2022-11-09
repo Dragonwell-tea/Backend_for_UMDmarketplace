@@ -1,2 +1,4 @@
 # Backend_for_UMDmarketplace
-二手市场的后端程序
+run:
+
+`docker compose up`
