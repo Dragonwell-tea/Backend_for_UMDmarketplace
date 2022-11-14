@@ -9,8 +9,6 @@ class UserRole(Enum):
     user = 0
     admin = 1
 
-
-
 class ProductAvailable(Enum):
     unsold: 0
     sold: 1
@@ -23,11 +21,11 @@ class OrderStatus(Enum):
 
 
 class User(db.Model):
-    user_id = db.Column(db.TEXT, primary_key=True)
+    user_id = db.Column(db.VARCHAR(100), primary_key=True)
     user_name = db.Column(db.TEXT)
     phone = db.Column(db.TEXT)
-    role = db.Column(db.INT)
-    email = db.Column(db.TEXT, unique=True)
+    role = db.Column(db.INTEGER)
+    email = db.Column(db.VARCHAR(100), unique=True)
     profile_picture = db.Column(db.TEXT)
     hash = db.Column(db.TEXT)
 
@@ -59,7 +57,7 @@ class Product(db.Model):
     picture = db.Column(db.TEXT)
     selling_price = db.Column(db.FLOAT)
     description = db.Column(db.TEXT)
-    available = db.Column(db.INT)
+    available = db.Column(db.INTEGER)
     user_id = db.Column(db.ForeignKey(User.user_id))
     category_id = db.Column(db.ForeignKey(Category.category_id))
     category = db.relationship("Category")
@@ -79,7 +77,7 @@ class Product(db.Model):
 
 class Order(db.Model):
     order_id = db.Column(db.BIGINT, primary_key=True)
-    status = db.Column(db.INT)
+    status = db.Column(db.INTEGER)
     create_date = db.Column(db.TIMESTAMP)
     user_id = db.Column(db.ForeignKey(User.user_id))
     product_id = db.Column(db.ForeignKey(Product.product_id))

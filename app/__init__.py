@@ -16,9 +16,9 @@ db.init_app(app)
 @app.before_first_request
 def before_first_request():
     db.create_all()
-    # with open("instance/data.sql", "r") as f:
-    #     db.session.execute(f.read())
-    #     db.session.commit()
+    with open("instance/data.sql", "r") as f:
+        db.session.execute(f.read())
+        db.session.commit()
 
 
 app.register_blueprint(views.blueprint, url_prefix="/api")

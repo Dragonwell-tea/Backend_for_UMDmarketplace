@@ -6,3 +6,4 @@ schema~=0.7.5
 PyJWT~=2.3.0
 bcrypt~=3.2.2
 cryptography~=37.0.2
+mysqlclient~=2.1.1
