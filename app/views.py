@@ -188,9 +188,9 @@ def get_products_route():
     category_id = request["category_id"] if "category_id" in request else None
     if category_id:
         products = db.session.query(Product).filter(
-            Product.status != ProductStatus.pending.value,
+            Product.status == ProductStatus.posted.value,
         )
-    products = db.session.query(Product).filter(Product.status != ProductStatus.pending.value)
+    products = db.session.query(Product).filter(Product.status == ProductStatus.posted.value)
     response = [{**m.to_dict()} for m in products]
     return flask.jsonify(response)
 
@@ -198,7 +198,7 @@ def get_products_route():
 @blueprint.route("/productHot", methods=["GET"])
 def get_products_hot__route():
     products = db.session.query(Product).filter(
-        Product.status != ProductStatus.pending.value, Product.views > 0
+        Product.status == ProductStatus.posted.value, Product.views > 0
     ).order_by(Product.views.desc())
     response = [{**m.to_dict()} for m in products]
     return flask.jsonify(response)
