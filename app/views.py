@@ -240,6 +240,7 @@ def create_product_route():
     product.selling_price = request["selling_price"]
     product.description = request["description"]
     product.status = ProductStatus.pending.value
+    product.views = 0
     product.category_id = request["category_id"]
     product.user_id = flask.g.token["user_id"]
     db.session.add(product)
