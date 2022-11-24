@@ -8,7 +8,7 @@ import schema
 import bcrypt
 import jwt
 
-from .models import Category, Product, UserRole, db, User
+from .models import Category, Order, Product, ProductStatus, UserRole, db, User
 
 
 blueprint = flask.Blueprint("views", __name__)
@@ -100,7 +100,7 @@ def register_route():
 
 
 LOGIN_SCHEMA = schema.Schema(
-    {"user_name": schema.And(str, len), "password": schema.And(str, len)}
+    {"email": schema.And(str, len), "password": schema.And(str, len)}
 )
 
 
@@ -113,10 +113,10 @@ def login_route():
     except schema.SchemaError as error:
         return {"status": "Bad request", "message": str(error)}, 400
 
-    user_name = request["user_name"]
+    email = request["email"]
     password = request["password"]
 
-    user = db.session.query(User).filter(User.user_name == user_name).first()
+    user = db.session.query(User).filter(User.email == email).first()
     if user is None:
         return {"status": "Unauthorized"}, 401
     if not bcrypt.checkpw(password.encode(), user.hash.encode()):
@@ -132,17 +132,74 @@ def current_user_route():
     return flask.jsonify(current_user.to_dict())
 
 
-@blueprint.route("/category", methods=["GET"])
+UPDATE_USER_SCHEMA = schema.Schema(
+    {
+        "user_name": schema.And(str, len),
+        "phone": schema.And(str, len),
+        "email": schema.And(str, len, is_email),
+    }
+)
+
+
+@blueprint.route("/currentUser", methods=["PUT"])
 @token_required
+def update_current_user_route():
+    if not isinstance(flask.request.json, dict):
+        return {"status": "Bad request"}, 400
+    try:
+        request = UPDATE_USER_SCHEMA.validate(flask.request.json.copy())
+    except schema.SchemaError as error:
+        return {"status": "Bad request", "message": str(error)}, 400
+
+    current_user_id = flask.g.token["user_id"]
+    current_user = db.session.get(User, current_user_id)
+    current_user.user_name = request["user_name"]
+    current_user.phone = request["phone"]
+    current_user.email = request["email"]
+    
+    db.session.merge(current_user)
+    db.session.commit()
+
+    return flask.jsonify({"message": "success"})
+
+
+
+@blueprint.route("/category", methods=["GET"])
 def get_categories_route():
     categories = db.session.query(Category)
     response = [{**m.to_dict()} for m in categories]
     return flask.jsonify(response)
 
 
+READ_PRODUCT_SCHEMA = schema.Schema(
+    {
+        schema.Optional("category_id"): schema.And(str, schema.Use(str.split)),
+    }
+)
+
+
 @blueprint.route("/product", methods=["GET"])
 def get_products_route():
-    products = db.session.query(Product)
+    try:
+        request = READ_PRODUCT_SCHEMA.validate(flask.request.args.copy())
+    except:
+        return {"status": "Bad request"}, 400
+
+    category_id = request["category_id"] if "category_id" in request else None
+    if category_id:
+        products = db.session.query(Product).filter(
+            Product.status != ProductStatus.pending.value,
+        )
+    products = db.session.query(Product).filter(Product.status != ProductStatus.pending.value)
+    response = [{**m.to_dict()} for m in products]
+    return flask.jsonify(response)
+
+
+@blueprint.route("/productHot", methods=["GET"])
+def get_products_hot__route():
+    products = db.session.query(Product).filter(
+        Product.status != ProductStatus.pending.value, Product.views > 0
+    ).order_by(Product.views.desc())
     response = [{**m.to_dict()} for m in products]
     return flask.jsonify(response)
 
@@ -152,6 +209,9 @@ def get_product_route(product_id):
     product = db.session.get(Product, product_id)
     if not product:
         return {"status": "Not Found"}, 404
+    product.views = product.views + 1
+    db.session.merge(product)
+    db.session.commit()
     return flask.jsonify(product.to_dict())
 
 
@@ -179,7 +239,7 @@ def create_product_route():
     product.picture = request["picture"]
     product.selling_price = request["selling_price"]
     product.description = request["description"]
-    product.available = 0
+    product.status = ProductStatus.pending.value
     product.category_id = request["category_id"]
     product.user_id = flask.g.token["user_id"]
     db.session.add(product)
@@ -245,5 +305,33 @@ def delete_product_route(product_id):
         return {"status": "Permission denied"}, 401
 
     db.session.delete(product)
+    db.session.commit()
+    return flask.jsonify({"message": "success"})
+
+
+CHECK_PRODUCT_SCHEMA = schema.Schema(
+    {
+        "product_id": schema.And(schema.Use(int), lambda i: i >= 0),
+        "status": schema.And(schema.Use(int)),
+    }
+)
+
+
+@blueprint.route("/check", methods=["POST"])
+@token_required
+def check_product_route():
+    try:
+        request = CHECK_PRODUCT_SCHEMA.validate(flask.request.json.copy())
+    except schema.SchemaError as error:
+        return {"status": "Bad request", "message": str(error)}, 400
+
+    current_user_id = flask.g.token["user_id"]
+    current_user = db.session.get(User, current_user_id)
+    if current_user.role != UserRole.admin.value:
+        return {"status": "Permission denied"}, 401
+
+    product = db.session.get(Product, request["product_id"])
+    product.status = request["status"]
+    db.session.merge(product)
     db.session.commit()
     return flask.jsonify({"message": "success"})

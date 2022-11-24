@@ -9,15 +9,12 @@ class UserRole(Enum):
     user = 0
     admin = 1
 
-class ProductAvailable(Enum):
-    unsold: 0
-    sold: 1
 
-
-class OrderStatus(Enum):
-    waitCheck: 0
-    checked: 1
-    finish: 2
+class ProductStatus(Enum):
+    pending = 0
+    posted = 1
+    closed = 2
+    reject = 3
 
 
 class User(db.Model):
@@ -57,8 +54,15 @@ class Product(db.Model):
     picture = db.Column(db.TEXT)
     selling_price = db.Column(db.FLOAT)
     description = db.Column(db.TEXT)
-    available = db.Column(db.INTEGER)
+    views = db.Column(db.INTEGER)
+    status = db.Column(db.INTEGER)
     user_id = db.Column(db.ForeignKey(User.user_id))
+    user = db.relationship(
+        "User",
+        overlaps="recipes",
+        primaryjoin="User.user_id == Product.user_id",
+        lazy=True,
+    )
     category_id = db.Column(db.ForeignKey(Category.category_id))
     category = db.relationship("Category")
 
@@ -69,15 +73,15 @@ class Product(db.Model):
             "picture": self.picture,
             "selling_price": self.selling_price,
             "description": self.description,
-            "available": self.available,
+            "status": self.status,
             "user_id": self.user_id,
+            "user_name": self.user.user_name,
             "category": self.category.category_name,
         }
 
 
 class Order(db.Model):
     order_id = db.Column(db.BIGINT, primary_key=True)
-    status = db.Column(db.INTEGER)
     create_date = db.Column(db.TIMESTAMP)
     user_id = db.Column(db.ForeignKey(User.user_id))
     product_id = db.Column(db.ForeignKey(Product.product_id))
@@ -89,5 +93,5 @@ class Order(db.Model):
             "status": self.status,
             "create_date": self.create_date,
             "user_id": self.user_id,
-            "product_id": self.product_id,
+            "product": self.product.to_dict(),
         }
