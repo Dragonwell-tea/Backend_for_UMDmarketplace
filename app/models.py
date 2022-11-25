@@ -90,7 +90,6 @@ class Order(db.Model):
     def to_dict(self):
         return {
             "order_id": self.order_id,
-            "status": self.status,
             "create_date": self.create_date,
             "user_id": self.user_id,
             "product": self.product.to_dict(),

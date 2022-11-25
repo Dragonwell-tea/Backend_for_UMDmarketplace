@@ -7,6 +7,7 @@ import flask
 import schema
 import bcrypt
 import jwt
+from datetime import datetime
 
 from .models import Category, Order, Product, ProductStatus, UserRole, db, User
 
@@ -203,6 +204,18 @@ def get_products_hot__route():
     response = [{**m.to_dict()} for m in products]
     return flask.jsonify(response)
 
+@blueprint.route("/productPending", methods=["GET"])
+@token_required
+def get_products_pending__route():
+    current_user_id = flask.g.token["user_id"]
+    current_user = db.session.get(User, current_user_id)
+    if current_user.role != UserRole.admin.value:
+        return {"status": "Permission denied"}, 401
+    products = db.session.query(Product).filter(
+        Product.status == ProductStatus.pending.value)
+    response = [{**m.to_dict()} for m in products]
+    return flask.jsonify(response)
+
 
 @blueprint.route("/product/<product_id>", methods=["GET"])
 def get_product_route(product_id):
@@ -334,5 +347,42 @@ def check_product_route():
     product = db.session.get(Product, request["product_id"])
     product.status = request["status"]
     db.session.merge(product)
+    db.session.commit()
+    return flask.jsonify({"message": "success"})
+
+
+
+
+@blueprint.route("/currentUserOrder", methods=["GET"])
+@token_required
+def current_user_order_route():
+    current_user_id = flask.g.token["user_id"]
+    orders = db.session.query(Order).filter(Order.user_id == current_user_id)
+    return flask.jsonify([{**m.to_dict()} for m in orders])
+
+
+CREATE_ORDER_SCHEMA = schema.Schema(
+    {
+        "product_id": schema.And(schema.Use(int), lambda i: i >= 0),
+    }
+)
+
+@blueprint.route("/order", methods=["POST"])
+@token_required
+def create_order_route():
+    try:
+        request = CREATE_ORDER_SCHEMA.validate(flask.request.json.copy())
+    except schema.SchemaError as error:
+        return {"status": "Bad request", "message": str(error)}, 400
+    current_user_id = flask.g.token["user_id"]
+    product = db.session.get(Product, request["product_id"])
+    product.status = 2
+    db.session.merge(product)
+    db.session.commit()
+    order =  Order()
+    order.create_date = datetime.now()
+    order.product_id = request["product_id"]
+    order.user_id = current_user_id
+    db.session.add(order)
     db.session.commit()
     return flask.jsonify({"message": "success"})
